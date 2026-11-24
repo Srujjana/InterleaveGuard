@@ -40,10 +40,26 @@ type FunctionModel struct {
 	CriticalSections []CriticalSection `json:"critical_sections"`
 }
 
+// Represents a dependency between two operations.
+type Dependency struct {
+	FromEventID int    `json:"from_event_id"`
+	ToEventID   int    `json:"to_event_id"`
+	Kind        string `json:"kind"`
+	Resource    string `json:"resource,omitempty"`
+}
+
+// Represents a goroutine launch relationship.
+type GoroutineLaunch struct {
+	Caller string `json:"caller"`
+	Target string `json:"target"`
+}
+
 // Represents the analyzed Go program.
 type ProgramModel struct {
-	File      string          `json:"file"`
-	Functions []FunctionModel `json:"functions"`
+	File              string            `json:"file"`
+	Functions         []FunctionModel   `json:"functions"`
+	Dependencies      []Dependency      `json:"dependencies"`
+	GoroutineLaunches []GoroutineLaunch `json:"goroutine_launches"`
 }
 
 // Extract a readable function name.
@@ -159,6 +175,8 @@ func main() {
 	// Identify goroutine launches.
 	fmt.Println("\nGoroutine targets:")
 
+	var goroutineLaunches []GoroutineLaunch
+
 	for _, declaration := range file.Decls {
 		fn, ok := declaration.(*ast.FuncDecl)
 		if !ok || fn.Body == nil {
@@ -167,9 +185,20 @@ func main() {
 
 		ast.Inspect(fn.Body, func(n ast.Node) bool {
 			if goStmt, ok := n.(*ast.GoStmt); ok {
+				target := getCallName(goStmt.Call.Fun)
+
 				fmt.Printf("- %s launches %s()\n",
-					fn.Name.Name, getCallName(goStmt.Call.Fun))
+					fn.Name.Name, target)
+
+				goroutineLaunches = append(
+					goroutineLaunches,
+					GoroutineLaunch{
+						Caller: fn.Name.Name,
+						Target: target,
+					},
+				)
 			}
+
 			return true
 		})
 	}
@@ -179,7 +208,8 @@ func main() {
 
 	// Build the structured program model.
 	program := ProgramModel{
-		File: filePath,
+		File:              filePath,
+		GoroutineLaunches: goroutineLaunches,
 	}
 
 	eventID := 1
@@ -204,6 +234,8 @@ func main() {
 
 		program.Functions = append(program.Functions, functionModel)
 	}
+	// Analyze dependencies between extracted operations.
+	analyzeDependencies(&program)
 
 	fmt.Println("\nStructured concurrency events:")
 
@@ -234,6 +266,18 @@ func main() {
 				event.ProtectedBy,
 			)
 		}
+	}
+
+	fmt.Println("\nOperation dependencies:")
+
+	for _, dependency := range program.Dependencies {
+		fmt.Printf(
+			"Event %d -> Event %d | %s | Resource: %s\n",
+			dependency.FromEventID,
+			dependency.ToEventID,
+			dependency.Kind,
+			dependency.Resource,
+		)
 	}
 
 	fmt.Println("\nPackage-level variables:")

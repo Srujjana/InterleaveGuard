@@ -148,6 +148,15 @@ func extractEvents(
 	})
 
 	// Collect synchronization operations.
+	deferredCalls := make(map[token.Pos]bool)
+
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		if stmt, ok := n.(*ast.DeferStmt); ok {
+			deferredCalls[stmt.Call.Pos()] = true
+		}
+		return true
+	})
+
 	ast.Inspect(fn.Body, func(n ast.Node) bool {
 		addEvent := func(kind string, resource ast.Expr, pos token.Pos) {
 			collected = append(collected, positionedEvent{
@@ -167,14 +176,18 @@ func extractEvents(
 
 		switch node := n.(type) {
 		case *ast.CallExpr:
-			// Mutex and WaitGroup methods.
 			if selector, ok := node.Fun.(*ast.SelectorExpr); ok {
 				if kind := synchronizationMethod(selector, info); kind != "" {
-					addEvent(kind, selector.X, node.Pos())
+					eventPos := node.Pos()
+
+					if deferredCalls[node.Pos()] {
+						eventPos = fn.Body.Rbrace
+					}
+
+					addEvent(kind, selector.X, eventPos)
 				}
 			}
 
-			// Built-in close(channel).
 			if id, ok := node.Fun.(*ast.Ident); ok &&
 				id.Name == "close" &&
 				info.Uses[id] == types.Universe.Lookup("close") &&
