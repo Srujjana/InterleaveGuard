@@ -54,12 +54,26 @@ type GoroutineLaunch struct {
 	Target string `json:"target"`
 }
 
+// Represents a direct function-call relationship.
+type CallEdge struct {
+	Caller string `json:"caller"`
+	Callee string `json:"callee"`
+}
+
+type GoroutineExecution struct {
+	Caller             string   `json:"caller"`
+	Entry              string   `json:"entry"`
+	ReachableFunctions []string `json:"reachable_functions"`
+}
+
 // Represents the analyzed Go program.
 type ProgramModel struct {
-	File              string            `json:"file"`
-	Functions         []FunctionModel   `json:"functions"`
-	Dependencies      []Dependency      `json:"dependencies"`
-	GoroutineLaunches []GoroutineLaunch `json:"goroutine_launches"`
+	File                string               `json:"file"`
+	Functions           []FunctionModel      `json:"functions"`
+	Dependencies        []Dependency         `json:"dependencies"`
+	GoroutineLaunches   []GoroutineLaunch    `json:"goroutine_launches"`
+	CallGraph           []CallEdge           `json:"call_graph"`
+	GoroutineExecutions []GoroutineExecution `json:"goroutine_executions"`
 }
 
 // Extract a readable function name.
@@ -71,6 +85,19 @@ func getCallName(expr ast.Expr) string {
 		return getCallName(fn.X) + "." + fn.Sel.Name
 	}
 	return "<unknown>"
+}
+
+func getGoroutineTarget(
+	call *ast.CallExpr,
+	caller string,
+	anonymousIndex int,
+) (string, *ast.FuncLit) {
+	if literal, ok := call.Fun.(*ast.FuncLit); ok {
+		name := fmt.Sprintf("%s$goroutine%d", caller, anonymousIndex)
+		return name, literal
+	}
+
+	return getCallName(call.Fun), nil
 }
 
 // Collect package-level variables.
@@ -173,9 +200,12 @@ func main() {
 	}
 
 	// Identify goroutine launches.
+	// Identify named and anonymous goroutine launches.
 	fmt.Println("\nGoroutine targets:")
 
 	var goroutineLaunches []GoroutineLaunch
+	anonymousGoroutines := make(map[string]*ast.FuncLit)
+	anonymousIndex := 0
 
 	for _, declaration := range file.Decls {
 		fn, ok := declaration.(*ast.FuncDecl)
@@ -184,20 +214,28 @@ func main() {
 		}
 
 		ast.Inspect(fn.Body, func(n ast.Node) bool {
-			if goStmt, ok := n.(*ast.GoStmt); ok {
-				target := getCallName(goStmt.Call.Fun)
-
-				fmt.Printf("- %s launches %s()\n",
-					fn.Name.Name, target)
-
-				goroutineLaunches = append(
-					goroutineLaunches,
-					GoroutineLaunch{
-						Caller: fn.Name.Name,
-						Target: target,
-					},
-				)
+			goStmt, ok := n.(*ast.GoStmt)
+			if !ok {
+				return true
 			}
+
+			target, literal := getGoroutineTarget(
+				goStmt.Call,
+				fn.Name.Name,
+				anonymousIndex+1,
+			)
+
+			if literal != nil {
+				anonymousIndex++
+				anonymousGoroutines[target] = literal
+			}
+
+			fmt.Printf("- %s launches %s()\n", fn.Name.Name, target)
+
+			goroutineLaunches = append(goroutineLaunches, GoroutineLaunch{
+				Caller: fn.Name.Name,
+				Target: target,
+			})
 
 			return true
 		})
@@ -210,6 +248,29 @@ func main() {
 	program := ProgramModel{
 		File:              filePath,
 		GoroutineLaunches: goroutineLaunches,
+	}
+	// Extract direct function-call relationships.
+	program.CallGraph = extractCallGraph(file, info)
+
+	// Display functions reachable from each goroutine launch.
+	fmt.Println("\nReachable functions per goroutine:")
+
+	for _, launch := range program.GoroutineLaunches {
+		reachable := reachableFunctions(launch.Target, program.CallGraph)
+
+		fmt.Printf("\nGoroutine launched by %s -> %s:\n",
+			launch.Caller, launch.Target)
+
+		for _, function := range reachable {
+			fmt.Println("  ", function)
+		}
+	}
+
+	// Display direct function-call relationships.
+	fmt.Println("\nFunction call graph:")
+
+	for _, edge := range program.CallGraph {
+		fmt.Printf("%s -> %s\n", edge.Caller, edge.Callee)
 	}
 
 	eventID := 1
@@ -234,6 +295,46 @@ func main() {
 
 		program.Functions = append(program.Functions, functionModel)
 	}
+
+	// Extract events from anonymous goroutine bodies.
+	var anonymousNames []string
+
+	for name := range anonymousGoroutines {
+		anonymousNames = append(anonymousNames, name)
+	}
+
+	sort.Strings(anonymousNames)
+
+	for _, name := range anonymousNames {
+		literal := anonymousGoroutines[name]
+
+		events := extractEventsFromBody(
+			name,
+			literal.Body,
+			globals,
+			info,
+			fset,
+			eventID,
+		)
+		eventID += len(events)
+
+		criticalSections := extractCriticalSectionsFromBody(
+			literal.Body,
+			info,
+			fset,
+		)
+
+		functionModel := FunctionModel{
+			Name:             name,
+			Events:           events,
+			CriticalSections: criticalSections,
+		}
+
+		annotateProtectedAccesses(&functionModel)
+
+		program.Functions = append(program.Functions, functionModel)
+	}
+
 	// Analyze dependencies between extracted operations.
 	analyzeDependencies(&program)
 

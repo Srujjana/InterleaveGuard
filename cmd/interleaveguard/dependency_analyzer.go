@@ -25,40 +25,9 @@ func analyzeDependencies(program *ProgramModel) {
 		}
 	}
 
-	// Compare events across different functions.
-	// Identify function pairs that may execute concurrently.
-	concurrentPairs := make(map[string]bool)
-
-	addConcurrentPair := func(a, b string) {
-		if a == b {
-			return
-		}
-
-		// Normalize the pair so A-B and B-A are equivalent.
-		if a > b {
-			a, b = b, a
-		}
-
-		concurrentPairs[a+"|"+b] = true
-	}
-
-	// A goroutine may execute concurrently with its caller.
-	for _, launch := range program.GoroutineLaunches {
-		addConcurrentPair(launch.Caller, launch.Target)
-	}
-
-	// Goroutines launched by the same caller may overlap.
-	for i := 0; i < len(program.GoroutineLaunches); i++ {
-		for j := i + 1; j < len(program.GoroutineLaunches); j++ {
-			first := program.GoroutineLaunches[i]
-			second := program.GoroutineLaunches[j]
-
-			if first.Caller == second.Caller {
-				addConcurrentPair(first.Target, second.Target)
-			}
-		}
-	}
-
+	// Identify function pairs that may execute concurrently,
+	// including functions indirectly reachable from goroutine targets.
+	concurrentPairs := buildConcurrentFunctionPairs(program)
 	// Compare events only between potentially concurrent functions.
 	for i := 0; i < len(program.Functions); i++ {
 		for j := i + 1; j < len(program.Functions); j++ {
@@ -66,10 +35,7 @@ func analyzeDependencies(program *ProgramModel) {
 			functionA := program.Functions[i]
 			functionB := program.Functions[j]
 
-			pair := functionA.Name + "|" + functionB.Name
-			reversePair := functionB.Name + "|" + functionA.Name
-
-			if !concurrentPairs[pair] && !concurrentPairs[reversePair] {
+			if !concurrentPairs[functionA.Name][functionB.Name] {
 				continue
 			}
 
@@ -80,7 +46,12 @@ func analyzeDependencies(program *ProgramModel) {
 						eventA.Resource != eventB.Resource {
 						continue
 					}
-
+					// Both accesses use the same lock, so they cannot
+					// execute inside their critical sections simultaneously.
+					if eventA.ProtectedBy != "" &&
+						eventA.ProtectedBy == eventB.ProtectedBy {
+						continue
+					}
 					if !isWriteOperation(eventA.Kind) &&
 						!isWriteOperation(eventB.Kind) {
 						continue

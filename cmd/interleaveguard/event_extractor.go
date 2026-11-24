@@ -8,6 +8,17 @@ import (
 	"strings"
 )
 
+// Inspect a function body without entering nested anonymous functions.
+func inspectFunctionBody(body *ast.BlockStmt, visit func(ast.Node) bool) {
+	ast.Inspect(body, func(node ast.Node) bool {
+		if _, ok := node.(*ast.FuncLit); ok {
+			return false
+		}
+
+		return visit(node)
+	})
+}
+
 // Get a readable name for a resource expression.
 func resourceName(expr ast.Expr) string {
 	switch e := expr.(type) {
@@ -100,6 +111,24 @@ func extractEvents(
 	fset *token.FileSet,
 	startID int,
 ) []Event {
+	return extractEventsFromBody(
+		fn.Name.Name,
+		fn.Body,
+		globals,
+		info,
+		fset,
+		startID,
+	)
+}
+
+func extractEventsFromBody(
+	functionName string,
+	body *ast.BlockStmt,
+	globals map[*types.Var]bool,
+	info *types.Info,
+	fset *token.FileSet,
+	startID int,
+) []Event {
 	type positionedEvent struct {
 		event Event
 		pos   token.Pos
@@ -111,7 +140,7 @@ func extractEvents(
 	synchronizationPositions := make(map[token.Pos]bool)
 
 	// Identify writes to package-level variables.
-	ast.Inspect(fn.Body, func(n ast.Node) bool {
+	inspectFunctionBody(body, func(n ast.Node) bool {
 		switch node := n.(type) {
 		case *ast.AssignStmt:
 			for _, lhs := range node.Lhs {
@@ -150,18 +179,18 @@ func extractEvents(
 	// Collect synchronization operations.
 	deferredCalls := make(map[token.Pos]bool)
 
-	ast.Inspect(fn.Body, func(n ast.Node) bool {
+	inspectFunctionBody(body, func(n ast.Node) bool {
 		if stmt, ok := n.(*ast.DeferStmt); ok {
 			deferredCalls[stmt.Call.Pos()] = true
 		}
 		return true
 	})
 
-	ast.Inspect(fn.Body, func(n ast.Node) bool {
+	inspectFunctionBody(body, func(n ast.Node) bool {
 		addEvent := func(kind string, resource ast.Expr, pos token.Pos) {
 			collected = append(collected, positionedEvent{
 				event: Event{
-					Function: fn.Name.Name,
+					Function: functionName,
 					Kind:     kind,
 					Resource: resourceName(resource),
 					Line:     fset.Position(pos).Line,
@@ -181,7 +210,7 @@ func extractEvents(
 					eventPos := node.Pos()
 
 					if deferredCalls[node.Pos()] {
-						eventPos = fn.Body.Rbrace
+						eventPos = body.Rbrace
 					}
 
 					addEvent(kind, selector.X, eventPos)
@@ -214,7 +243,7 @@ func extractEvents(
 	})
 
 	// Collect accesses to package-level variables.
-	ast.Inspect(fn.Body, func(n ast.Node) bool {
+	inspectFunctionBody(body, func(n ast.Node) bool {
 		id, ok := n.(*ast.Ident)
 		if !ok || synchronizationPositions[id.Pos()] {
 			return true
@@ -232,7 +261,7 @@ func extractEvents(
 
 		collected = append(collected, positionedEvent{
 			event: Event{
-				Function: fn.Name.Name,
+				Function: functionName,
 				Kind:     kind,
 				Resource: variable.Name(),
 				Line:     fset.Position(id.Pos()).Line,
@@ -266,6 +295,18 @@ func extractCriticalSections(
 	info *types.Info,
 	fset *token.FileSet,
 ) []CriticalSection {
+	return extractCriticalSectionsFromBody(
+		fn.Body,
+		info,
+		fset,
+	)
+}
+
+func extractCriticalSectionsFromBody(
+	body *ast.BlockStmt,
+	info *types.Info,
+	fset *token.FileSet,
+) []CriticalSection {
 	type lockOperation struct {
 		kind     string
 		resource string
@@ -283,7 +324,7 @@ func extractCriticalSections(
 	// Record calls that are deferred.
 	deferredCalls := make(map[token.Pos]bool)
 
-	ast.Inspect(fn.Body, func(n ast.Node) bool {
+	inspectFunctionBody(body, func(n ast.Node) bool {
 		if stmt, ok := n.(*ast.DeferStmt); ok {
 			deferredCalls[stmt.Call.Pos()] = true
 		}
@@ -291,7 +332,7 @@ func extractCriticalSections(
 	})
 
 	// Collect recognized mutex operations.
-	ast.Inspect(fn.Body, func(n ast.Node) bool {
+	inspectFunctionBody(body, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
 			return true
@@ -383,9 +424,9 @@ func extractCriticalSections(
 		sections = append(sections, CriticalSection{
 			Lock:      start.resource,
 			StartLine: fset.Position(start.pos).Line,
-			EndLine:   fset.Position(fn.Body.Rbrace).Line,
+			EndLine:   fset.Position(body.Rbrace).Line,
 			startPos:  start.pos,
-			endPos:    fn.Body.Rbrace,
+			endPos:    body.Rbrace,
 		})
 	}
 
