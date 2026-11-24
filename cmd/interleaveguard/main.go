@@ -3,11 +3,48 @@ package main
 import (
 	"fmt"
 	"go/ast"
+	"go/importer"
 	"go/parser"
 	"go/token"
+	"go/types"
 	"os"
 	"sort"
 )
+
+// Represents one concurrency-related operation.
+type Event struct {
+	ID          int    `json:"id"`
+	Function    string `json:"function"`
+	Kind        string `json:"kind"`
+	Resource    string `json:"resource,omitempty"`
+	ProtectedBy string `json:"protected_by,omitempty"`
+	Line        int    `json:"line"`
+	pos         token.Pos
+}
+
+// Represents a region protected by a synchronization lock.
+type CriticalSection struct {
+	Lock      string   `json:"lock"`
+	StartLine int      `json:"start_line"`
+	EndLine   int      `json:"end_line"`
+	Resources []string `json:"resources"`
+
+	startPos token.Pos
+	endPos   token.Pos
+}
+
+// Represents all events found inside a function.
+type FunctionModel struct {
+	Name             string            `json:"name"`
+	Events           []Event           `json:"events"`
+	CriticalSections []CriticalSection `json:"critical_sections"`
+}
+
+// Represents the analyzed Go program.
+type ProgramModel struct {
+	File      string          `json:"file"`
+	Functions []FunctionModel `json:"functions"`
+}
 
 // Extract a readable function name.
 func getCallName(expr ast.Expr) string {
@@ -21,8 +58,12 @@ func getCallName(expr ast.Expr) string {
 }
 
 // Collect package-level variables.
-func getGlobalVariables(file *ast.File) map[string]bool {
-	globals := make(map[string]bool)
+// Collect package-level variables by their actual declarations.
+func getGlobalVariables(
+	file *ast.File,
+	info *types.Info,
+) map[*types.Var]bool {
+	globals := make(map[*types.Var]bool)
 
 	for _, declaration := range file.Decls {
 		gen, ok := declaration.(*ast.GenDecl)
@@ -34,12 +75,26 @@ func getGlobalVariables(file *ast.File) map[string]bool {
 			valueSpec := spec.(*ast.ValueSpec)
 
 			for _, name := range valueSpec.Names {
-				globals[name.Name] = true
+				if variable, ok := info.Defs[name].(*types.Var); ok {
+					globals[variable] = true
+				}
 			}
 		}
 	}
 
 	return globals
+}
+
+// Returns the package-level variable an identifier refers to, or nil.
+func asGlobal(
+	id *ast.Ident,
+	globals map[*types.Var]bool,
+	info *types.Info,
+) *types.Var {
+	if v, ok := info.Uses[id].(*types.Var); ok && globals[v] {
+		return v
+	}
+	return nil
 }
 
 func main() {
@@ -54,6 +109,25 @@ func main() {
 	file, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
 	if err != nil {
 		fmt.Println("Error parsing file:", err)
+		return
+	}
+
+	// Resolve identifiers to their actual declarations.
+	info := &types.Info{
+		Defs:       make(map[*ast.Ident]types.Object),
+		Uses:       make(map[*ast.Ident]types.Object),
+		Types:      make(map[ast.Expr]types.TypeAndValue),
+		Selections: make(map[*ast.SelectorExpr]*types.Selection),
+	}
+
+	config := types.Config{
+		Importer: importer.Default(),
+		//importer.ForCompiler(fset, "source", nil)
+	}
+
+	_, err = config.Check(file.Name.Name, fset, []*ast.File{file}, info)
+	if err != nil {
+		fmt.Println("Type-checking error:", err)
 		return
 	}
 
@@ -101,22 +175,14 @@ func main() {
 	}
 
 	// Identify package-level shared variables.
-	globals := getGlobalVariables(file)
+	globals := getGlobalVariables(file, info)
 
-	fmt.Println("\nPackage-level variables:")
-
-	globalNames := make([]string, 0, len(globals))
-	for name := range globals {
-		globalNames = append(globalNames, name)
-	}
-	sort.Strings(globalNames)
-
-	for _, name := range globalNames {
-		fmt.Println("-", name)
+	// Build the structured program model.
+	program := ProgramModel{
+		File: filePath,
 	}
 
-	// Analyze reads and writes inside each function.
-	fmt.Println("\nShared-state access analysis:")
+	eventID := 1
 
 	for _, declaration := range file.Decls {
 		fn, ok := declaration.(*ast.FuncDecl)
@@ -124,79 +190,61 @@ func main() {
 			continue
 		}
 
-		// Record global-variable writes by source position.
-		writes := make(map[token.Pos]string)
+		events := extractEvents(fn, globals, info, fset, eventID)
+		eventID += len(events)
 
-		ast.Inspect(fn.Body, func(n ast.Node) bool {
-			switch node := n.(type) {
-
-			case *ast.AssignStmt:
-				accessType := "WRITE"
-
-				// Compound assignments also read the old value.
-				if node.Tok != token.ASSIGN {
-					accessType = "READ + WRITE"
-				}
-
-				for _, lhs := range node.Lhs {
-					if id, ok := lhs.(*ast.Ident); ok && globals[id.Name] {
-						writes[id.Pos()] = accessType
-					}
-				}
-
-			case *ast.IncDecStmt:
-				if id, ok := node.X.(*ast.Ident); ok && globals[id.Name] {
-					writes[id.Pos()] = "READ + WRITE"
-				}
-			}
-
-			return true
-		})
-
-		// Collect accesses.
-		accesses := make(map[string]map[string]bool)
-
-		ast.Inspect(fn.Body, func(n ast.Node) bool {
-			id, ok := n.(*ast.Ident)
-			if !ok || !globals[id.Name] {
-				return true
-			}
-
-			accessType := "READ"
-
-			if writeType, exists := writes[id.Pos()]; exists {
-				accessType = writeType
-			}
-
-			if accesses[id.Name] == nil {
-				accesses[id.Name] = make(map[string]bool)
-			}
-
-			accesses[id.Name][accessType] = true
-
-			return true
-		})
-
-		// Print results in a predictable order.
-		variableNames := make([]string, 0, len(accesses))
-		for name := range accesses {
-			variableNames = append(variableNames, name)
+		criticalSections := extractCriticalSections(fn, info, fset)
+		functionModel := FunctionModel{
+			Name:             fn.Name.Name,
+			Events:           events,
+			CriticalSections: criticalSections,
 		}
-		sort.Strings(variableNames)
 
-		for _, name := range variableNames {
-			var types []string
+		annotateProtectedAccesses(&functionModel)
 
-			for _, accessType := range []string{
-				"READ", "WRITE", "READ + WRITE",
-			} {
-				if accesses[name][accessType] {
-					types = append(types, accessType)
-				}
-			}
+		program.Functions = append(program.Functions, functionModel)
+	}
 
-			fmt.Printf("- Function %s accesses %s: %v\n",
-				fn.Name.Name, name, types)
+	fmt.Println("\nStructured concurrency events:")
+
+	fmt.Println("\nCritical sections:")
+
+	for _, function := range program.Functions {
+		for _, section := range function.CriticalSections {
+			fmt.Printf(
+				"Function %s | Lock: %s | Start: Line %d | End: Line %d | Resources: %v\n",
+				function.Name,
+				section.Lock,
+				section.StartLine,
+				section.EndLine,
+				section.Resources,
+			)
 		}
+	}
+
+	for _, function := range program.Functions {
+		for _, event := range function.Events {
+			fmt.Printf(
+				"Event %d | %s | %s | %s | Line %d | Protected by: %s\n",
+				event.ID,
+				event.Function,
+				event.Kind,
+				event.Resource,
+				event.Line,
+				event.ProtectedBy,
+			)
+		}
+	}
+
+	fmt.Println("\nPackage-level variables:")
+
+	globalNames := make([]string, 0, len(globals))
+	for variable := range globals {
+		globalNames = append(globalNames, variable.Name())
+	}
+	sort.Strings(globalNames)
+
+	for _, name := range globalNames {
+		fmt.Println("-", name)
 	}
 }

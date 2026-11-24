@@ -1,0 +1,11 @@
+[0m
+> build · gemini-2.5-flash
+[0m
+[91m[1mError: [0mBad Request: [{
+  "error": {
+    "code": 400,
+    "message": "Please pass a valid API key",
+    "status": "INVALID_ARGUMENT"
+  }
+}
+]

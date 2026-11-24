@@ -12,31 +12,31 @@ import (
 )
 
 func TestConcurrentIncrement(t *testing.T) {
-	counter := &Counter{}
+	counter := &Counter{} //shared counter
 
 	const workers = 10
 	const incrementsPerWorker = 1000
 
-	start := make(chan struct{})
+	start := make(chan struct{}) //start channel to sync the start of all routines
 	var wg sync.WaitGroup
 
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
 
-		go func() {
+		go func() { //launching 10 goroutines that'll increment counter
 			defer wg.Done()
-			<-start
+			<-start //every goroutine waits for the start signal
 
 			for j := 0; j < incrementsPerWorker; j++ {
-				counter.Increment()
+				counter.Increment() //each routine increments the var a 1000 times
 			}
 		}()
 	}
 
 	// Release all workers together to encourage overlapping accesses.
-	close(start)
+	close(start) //signals all routines to start
 
-	wg.Wait()
+	wg.Wait() //wait for all routines to finish
 
 	// Read after all workers finish.
 	// The race detector should still detect the concurrent writes.

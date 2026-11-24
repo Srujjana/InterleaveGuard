@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-23T12:44:45.406767Z",
+  "project": "/mnt/d/interleaveguard",
+  "scope": {
+    "submodules": [],
+    "included_directories": [
+      "benchmarks/atomicity_safe",
+      "benchmarks/atomicity_unsafe",
+      "benchmarks/data_race_safe",
+      "benchmarks/data_race_unsafe",
+      "benchmarks/deadlock_safe",
+      "benchmarks/deadlock_unsafe",
+      "cmd/interleaveguard"
+    ],
+    "excluded_directories": [
+      {
+        "path": ".git",
+        "reason": "scanner ignored directory"
+      },
+      {
+        "path": "fm_agent",
+        "reason": "scanner ignored directory"
+      },
+      {
+        "path": "testdata",
+        "reason": "test source"
+      },
+      {
+        "path": "benchmarks/atomicity_safe",
+        "reason": "test source"
+      },
+      {
+        "path": "benchmarks/atomicity_unsafe",
+        "reason": "test source"
+      },
+      {
+        "path": "benchmarks/data_race_safe",
+        "reason": "test source"
+      },
+      {
+        "path": "benchmarks/data_race_unsafe",
+        "reason": "test source"
+      }
+    ],
+    "included_file_count": 7,
+    "excluded_file_count": 6,
+    "included_files": [
+      "benchmarks/atomicity_safe/case.go",
+      "benchmarks/atomicity_unsafe/case.go",
+      "benchmarks/data_race_safe/case.go",
+      "benchmarks/data_race_unsafe/case.go",
+      "benchmarks/deadlock_safe/case.go",
+      "benchmarks/deadlock_unsafe/case.go",
+      "cmd/interleaveguard/main.go"
+    ],
+    "excluded_files": [
+      {
+        "path": "benchmarks/atomicity_safe/case_test.go",
+        "reason": "test source"
+      },
+      {
+        "path": "benchmarks/atomicity_unsafe/case_test.go",
+        "reason": "test source"
+      },
+      {
+        "path": "benchmarks/data_race_safe/case_test.go",
+        "reason": "test source"
+      },
+      {
+        "path": "benchmarks/data_race_unsafe/case_test.go",
+        "reason": "test source"
+      },
+      {
+        "path": "testdata/sample.go",
+        "reason": "test source"
+      },
+      {
+        "path": "testdata/shared_state.go",
+        "reason": "test source"
+      }
+    ],
+    "function_count": 14,
+    "function_count_is_estimate": true,
+    "function_count_uncounted_files": []
+  },
+  "analysis_stages": [
+    {
+      "number": 1,
+      "name": "Code understanding & phase plan",
+      "kind": "LLM"
+    },
+    {
+      "number": 2,
+      "name": "Domain-context generation",
+      "kind": "LLM"
+    },
+    {
+      "number": 3,
+      "name": "Function extraction",
+      "kind": "local"
+    },
+    {
+      "number": 4,
+      "name": "Function inventory",
+      "kind": "local"
+    },
+    {
+      "number": 5,
+      "name": "Call graph & analysis layers",
+      "kind": "local"
+    },
+    {
+      "number": 6,
+      "name": "Specification, verification & bug validation",
+      "kind": "LLM"
+    }
+  ],
+  "estimate": {
+    "label": "estimate",
+    "method": "historical completed runs scaled by function count (file count fallback); range is the observed envelope with 10% margin",
+    "based_on_runs": 0,
+    "duration_seconds": null,
+    "llm_calls": null,
+    "tokens": null,
+    "cost_usd": null
+  }
+}
