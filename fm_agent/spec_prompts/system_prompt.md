@@ -135,16 +135,6 @@ Post-condition:
 
 ### Quick Reference
 
-**Write WHAT, not HOW.**
-
-|  Do |  Do Not |
-|........|........|
-| Describe data structure invariants: sizes, types, valid ranges, ordering | Name internal helper functions called |
-| Describe result properties and output format contracts | Describe conditional or branch choices |
-| Describe error contract: what errors are raised and under exactly what condition | Enumerate switch/match cases or dispatch entries by name |
-| Use verifiable, falsifiable claims | Use vague terms: "correctly handles", "processes", "manages" |
-| Describe the governing invariant across all code paths | Name specific set members "as examples" |
-
 **Cycle layer guidance:** Ask "what is true after return regardless of which caller invoked it and which code path executed?" That is the post-condition.
 
 **Litmus test:** If deleting one branch makes the spec wrong, the spec is implementation-coupled. Rewrite as an invariant that holds regardless of path.
