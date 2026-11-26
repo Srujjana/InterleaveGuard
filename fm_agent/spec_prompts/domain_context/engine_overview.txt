@@ -1,41 +1,5 @@
-InterleaveGuard Engine Overview
+InterleaveGuard is a Go tool meant to find concurrency bugs like data races in programs. It goes through a few stages but they kind of overlap in practice. The first part parses the code with the usual Go parser and does type checking to map everything out. That gives it the AST info and package variables.
 
-## Architecture and Pipeline Stages
-InterleaveGuard is a Go static analysis engine designed to detect concurrency issues, data races, and synchronization anomalies in concurrent Go programs. The pipeline operates through the following sequential stages:
+From there it builds a call graph by looking at direct calls inside the file. It also spots goroutine starts, both named ones and the anonymous kind, and it makes up some fake function names for those. Then it figures out what functions can reach from those starting points using a search over the graph. The next bit pulls out events from the function bodies. It marks reads and writes on shared variables and notices lock calls or channel stuff. It tries to match locks with unlocks to mark critical sections, including when unlocks are deferred. After that it checks for conflicts between functions that might run at the same time, but only if a write is involved and the accesses are not protected by the same locks.
 
-1. **Parsing & Type Checking (Phase 1 / Entry Point):**
-   - Parses Go source code using `go/parser` and `go/token`.
-   - Performs static type-checking and name resolution using `go/types` and `go/importer` to establish precise AST-to-object mappings (`types.Info`, `Defs`, `Uses`, `Selections`).
-   - Collects package-level variables and function declarations.
-
-2. **Call Graph & Goroutine Extraction (Phase 2):**
-   - Extracts direct call edges between functions declared within the analyzed file (`extractCallGraph`).
-   - Identifies named and anonymous goroutine launches (`go func(...)`, `go target()`), constructing `GoroutineLaunch` records and synthetic function literals (`$goroutineN`).
-   - Computes transitive reachability from goroutine entry points (`reachableFunctions`) using depth-first search (DFS) over the adjacency-list representation of the call graph.
-
-3. **Event Extraction & Critical Section Modeling (Phase 2):**
-   - Scans function bodies and anonymous function literals for concurrency-relevant operations (`extractEvents` / `extractEventsFromBody`).
-   - Classifies shared-state operations on package-level variables into `READ`, `WRITE`, and `READ_WRITE` (assignments and increment/decrement statements).
-   - Identifies synchronization method calls (`sync.Mutex`, `sync.RWMutex`, `sync.WaitGroup`) and channel operations (`CHANNEL_SEND`, `CHANNEL_RECEIVE`, `CHANNEL_CLOSE`, `SELECT`).
-   - Lexically matches lock/unlock operations (`sync.Mutex.Lock`, `sync.RWMutex.RLock`, etc.) and deferred unlocks to construct `CriticalSection` intervals (`extractCriticalSections`).
-   - Annotates shared-state events with enclosing lock protection (`annotateProtectedAccesses`).
-
-4. **Dependency & Race Analysis (Phase 2):**
-   - Establishes program-order dependencies (`PROGRAM_ORDER`) within functions.
-   - Builds concurrent function pairs (`buildConcurrentFunctionPairs`) based on goroutine launch relationships and call graph reachability.
-   - Detects shared resource conflicts (`SHARED_RESOURCE_CONFLICT`) between potentially concurrent functions where at least one operation is a write (`WRITE` or `READ_WRITE`) and accesses are not mutually excluded by matching locks (`ProtectedBy`).
-
-## Encoding Conventions
-- **Identifiers & Tokens:** AST positions (`token.Pos`) are used to establish precise source order and nesting relationships.
-- **Event Kinds:** Strings representing concurrency primitives and memory accesses (`READ`, `WRITE`, `READ_WRITE`, `MUTEX_Lock`, `MUTEX_Unlock`, `RW_MUTEX_RLock`, `RW_MUTEX_RUnlock`, `CHANNEL_SEND`, `CHANNEL_RECEIVE`, `CHANNEL_CLOSE`, `WAITGROUP_Add`, `WAITGROUP_Done`, `WAITGROUP_Wait`, `SELECT`).
-- **Dependency Kinds:** Classified as `PROGRAM_ORDER` or `SHARED_RESOURCE_CONFLICT`.
-- **Resource Representation:** Stringified expressions (`resourceName`), supporting identifiers, selector expressions, pointer dereferences, and array index expressions.
-
-## Key Precomputed Data Structures and Invariants
-- **`ProgramModel`:** Aggregate container holding the target file path, parsed functions (`FunctionModel`), computed dependencies, goroutine launches, call graph edges, and goroutine executions.
-- **`FunctionModel`:** Encapsulates function name, sequential list of ordered `Event` records, and sorted `CriticalSection` intervals.
-- **`CriticalSection`:** Bounded by `startPos` and `endPos` (or block closing brace for deferred unlocks), tracking the lock resource and protected shared resources.
-- **Invariants:**
-  - Events within a function must be sorted in strict source-code order (`token.Pos`).
-  - Critical sections must be correctly paired with corresponding unlocks (including handling of deferred unlocks in LIFO order).
-  - Shared resource conflicts are only evaluated between functions that may execute concurrently.
+I think the encoding part uses positions from the token package to keep order straight. Events get labels like READ or MUTEX_Lock and resources are just string versions of the expressions. The main data structure holds the functions, their events, the goroutine info and the dependencies found. It seems important that events stay sorted by source order and that critical sections pair up correctly. Shared conflicts only get checked on functions that can actually overlap in execution. Some of the reachability stuff might be simplified in how they describe it but the overall flow is parsing then graph stuff then the conflict detection.
