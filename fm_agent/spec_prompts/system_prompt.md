@@ -137,8 +137,8 @@ Post-condition:
 
 **Write WHAT, not HOW.**
 
-| ✅ Do | ❌ Do Not |
-|------|----------|
+|  Do |  Do Not |
+
 | Describe data structure invariants: sizes, types, valid ranges, ordering | Name internal helper functions called |
 | Describe result properties and output format contracts | Describe conditional or branch choices |
 | Describe error contract: what errors are raised and under exactly what condition | Enumerate switch/match cases or dispatch entries by name |
