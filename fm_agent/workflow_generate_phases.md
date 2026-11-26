@@ -87,3 +87,11 @@ Each source file must belong to **at most one phase** and **at most one module**
 **Before finishing, verify the following exists (use `ls` to confirm):**
 
 - [ ] `fm_agent/phases.json` exists and is valid JSON
+
+---
+
+## User-Provided Domain Knowledge
+
+The user supplied extra Markdown files with domain knowledge for this run. Read these files before writing `phases.json` and the generated domain context files. Use them only as contextual knowledge about intended behavior, terminology, business rules, data encodings, and invariants; do NOT include these Markdown files as project source files in `phases.json`, and do NOT edit or summarize them in place.
+
+- `fm_agent/spec_prompts/domain_context/user_knowledge/fm_agent_concurrency.md`

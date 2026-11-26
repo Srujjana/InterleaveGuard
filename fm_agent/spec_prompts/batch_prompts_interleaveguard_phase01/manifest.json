@@ -1,0 +1,21 @@
+{
+  "phase": 1,
+  "layers": "0",
+  "total_functions": 2,
+  "total_context_functions": 0,
+  "total_batches": 1,
+  "batches": [
+    {
+      "index": 0,
+      "file": "batch_000_layer0_extracted_b0.txt",
+      "layer": 0,
+      "is_cycle": false,
+      "num_functions": 2,
+      "num_pending": 2,
+      "functions": [
+        "fm_agent/extracted_functions/cmd/interleaveguard/main-go/asGlobal.go",
+        "fm_agent/extracted_functions/cmd/interleaveguard/main-go/main.go"
+      ]
+    }
+  ]
+}

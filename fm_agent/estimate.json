@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-23T12:44:45.406767Z",
+  "generated_at": "2026-11-26T10:00:36.874299Z",
   "project": "/mnt/d/interleaveguard",
   "scope": {
     "submodules": [],
@@ -14,6 +14,10 @@
       "cmd/interleaveguard"
     ],
     "excluded_directories": [
+      {
+        "path": ".codegraph-wsl",
+        "reason": "scanner ignored directory"
+      },
       {
         "path": ".git",
         "reason": "scanner ignored directory"
@@ -43,8 +47,8 @@
         "reason": "test source"
       }
     ],
-    "included_file_count": 7,
-    "excluded_file_count": 6,
+    "included_file_count": 10,
+    "excluded_file_count": 7,
     "included_files": [
       "benchmarks/atomicity_safe/case.go",
       "benchmarks/atomicity_unsafe/case.go",
@@ -52,6 +56,9 @@
       "benchmarks/data_race_unsafe/case.go",
       "benchmarks/deadlock_safe/case.go",
       "benchmarks/deadlock_unsafe/case.go",
+      "cmd/interleaveguard/call_graph.go",
+      "cmd/interleaveguard/dependency_analyzer.go",
+      "cmd/interleaveguard/event_extractor.go",
       "cmd/interleaveguard/main.go"
     ],
     "excluded_files": [
@@ -72,6 +79,10 @@
         "reason": "test source"
       },
       {
+        "path": "testdata/indirect_calls.go",
+        "reason": "test source"
+      },
+      {
         "path": "testdata/sample.go",
         "reason": "test source"
       },
@@ -80,7 +91,7 @@
         "reason": "test source"
       }
     ],
-    "function_count": 14,
+    "function_count": 31,
     "function_count_is_estimate": true,
     "function_count_uncounted_files": []
   },

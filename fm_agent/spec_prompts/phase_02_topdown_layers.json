@@ -1,0 +1,204 @@
+{
+  "phase": 2,
+  "phase_name": "Static Analysis & Extraction",
+  "total_functions": 15,
+  "total_layers": 3,
+  "layers": [
+    {
+      "layer": 0,
+      "functions": [
+        {
+          "name": "cmd::interleaveguard::call_graph-go::extractCallGraph",
+          "file": "extracted_functions/cmd/interleaveguard/call_graph-go/extractCallGraph.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [],
+          "phase2_callees": [],
+          "all_callees": []
+        },
+        {
+          "name": "cmd::interleaveguard::dependency_analyzer-go::analyzeDependencies",
+          "file": "extracted_functions/cmd/interleaveguard/dependency_analyzer-go/analyzeDependencies.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [],
+          "phase2_callees": [
+            "cmd::interleaveguard::call_graph-go::buildConcurrentFunctionPairs",
+            "cmd::interleaveguard::dependency_analyzer-go::isWriteOperation"
+          ],
+          "all_callees": [
+            "cmd::interleaveguard::call_graph-go::buildConcurrentFunctionPairs",
+            "cmd::interleaveguard::dependency_analyzer-go::isWriteOperation"
+          ]
+        },
+        {
+          "name": "cmd::interleaveguard::event_extractor-go::annotateProtectedAccesses",
+          "file": "extracted_functions/cmd/interleaveguard/event_extractor-go/annotateProtectedAccesses.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [],
+          "phase2_callees": [],
+          "all_callees": []
+        },
+        {
+          "name": "cmd::interleaveguard::event_extractor-go::extractCriticalSections",
+          "file": "extracted_functions/cmd/interleaveguard/event_extractor-go/extractCriticalSections.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [],
+          "phase2_callees": [
+            "cmd::interleaveguard::event_extractor-go::extractCriticalSectionsFromBody"
+          ],
+          "all_callees": [
+            "cmd::interleaveguard::event_extractor-go::extractCriticalSectionsFromBody"
+          ]
+        },
+        {
+          "name": "cmd::interleaveguard::event_extractor-go::extractEvents",
+          "file": "extracted_functions/cmd/interleaveguard/event_extractor-go/extractEvents.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [],
+          "phase2_callees": [
+            "cmd::interleaveguard::event_extractor-go::extractEventsFromBody"
+          ],
+          "all_callees": [
+            "cmd::interleaveguard::event_extractor-go::extractEventsFromBody"
+          ]
+        }
+      ]
+    },
+    {
+      "layer": 1,
+      "functions": [
+        {
+          "name": "cmd::interleaveguard::call_graph-go::buildConcurrentFunctionPairs",
+          "file": "extracted_functions/cmd/interleaveguard/call_graph-go/buildConcurrentFunctionPairs.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [
+            "cmd::interleaveguard::dependency_analyzer-go::analyzeDependencies"
+          ],
+          "phase2_callees": [
+            "cmd::interleaveguard::call_graph-go::addConcurrentPair",
+            "cmd::interleaveguard::call_graph-go::reachableFunctions"
+          ],
+          "all_callees": [
+            "cmd::interleaveguard::call_graph-go::addConcurrentPair",
+            "cmd::interleaveguard::call_graph-go::reachableFunctions"
+          ]
+        },
+        {
+          "name": "cmd::interleaveguard::dependency_analyzer-go::isWriteOperation",
+          "file": "extracted_functions/cmd/interleaveguard/dependency_analyzer-go/isWriteOperation.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [
+            "cmd::interleaveguard::dependency_analyzer-go::analyzeDependencies"
+          ],
+          "phase2_callees": [],
+          "all_callees": []
+        },
+        {
+          "name": "cmd::interleaveguard::event_extractor-go::extractCriticalSectionsFromBody",
+          "file": "extracted_functions/cmd/interleaveguard/event_extractor-go/extractCriticalSectionsFromBody.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [
+            "cmd::interleaveguard::event_extractor-go::extractCriticalSections"
+          ],
+          "phase2_callees": [
+            "cmd::interleaveguard::event_extractor-go::inspectFunctionBody",
+            "cmd::interleaveguard::event_extractor-go::resourceName",
+            "cmd::interleaveguard::event_extractor-go::synchronizationMethod"
+          ],
+          "all_callees": [
+            "cmd::interleaveguard::event_extractor-go::inspectFunctionBody",
+            "cmd::interleaveguard::event_extractor-go::resourceName",
+            "cmd::interleaveguard::event_extractor-go::synchronizationMethod"
+          ]
+        },
+        {
+          "name": "cmd::interleaveguard::event_extractor-go::extractEventsFromBody",
+          "file": "extracted_functions/cmd/interleaveguard/event_extractor-go/extractEventsFromBody.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [
+            "cmd::interleaveguard::event_extractor-go::extractEvents"
+          ],
+          "phase2_callees": [
+            "cmd::interleaveguard::event_extractor-go::inspectFunctionBody",
+            "cmd::interleaveguard::event_extractor-go::isChannel",
+            "cmd::interleaveguard::event_extractor-go::resourceName",
+            "cmd::interleaveguard::event_extractor-go::synchronizationMethod"
+          ],
+          "all_callees": [
+            "cmd::interleaveguard::event_extractor-go::inspectFunctionBody",
+            "cmd::interleaveguard::event_extractor-go::isChannel",
+            "cmd::interleaveguard::event_extractor-go::resourceName",
+            "cmd::interleaveguard::event_extractor-go::synchronizationMethod"
+          ]
+        }
+      ]
+    },
+    {
+      "layer": 2,
+      "functions": [
+        {
+          "name": "cmd::interleaveguard::call_graph-go::addConcurrentPair",
+          "file": "extracted_functions/cmd/interleaveguard/call_graph-go/addConcurrentPair.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [
+            "cmd::interleaveguard::call_graph-go::buildConcurrentFunctionPairs"
+          ],
+          "phase2_callees": [],
+          "all_callees": []
+        },
+        {
+          "name": "cmd::interleaveguard::call_graph-go::reachableFunctions",
+          "file": "extracted_functions/cmd/interleaveguard/call_graph-go/reachableFunctions.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [
+            "cmd::interleaveguard::call_graph-go::buildConcurrentFunctionPairs"
+          ],
+          "phase2_callees": [],
+          "all_callees": []
+        },
+        {
+          "name": "cmd::interleaveguard::event_extractor-go::inspectFunctionBody",
+          "file": "extracted_functions/cmd/interleaveguard/event_extractor-go/inspectFunctionBody.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [
+            "cmd::interleaveguard::event_extractor-go::extractCriticalSectionsFromBody",
+            "cmd::interleaveguard::event_extractor-go::extractEventsFromBody"
+          ],
+          "phase2_callees": [],
+          "all_callees": []
+        },
+        {
+          "name": "cmd::interleaveguard::event_extractor-go::isChannel",
+          "file": "extracted_functions/cmd/interleaveguard/event_extractor-go/isChannel.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [
+            "cmd::interleaveguard::event_extractor-go::extractEventsFromBody"
+          ],
+          "phase2_callees": [],
+          "all_callees": []
+        },
+        {
+          "name": "cmd::interleaveguard::event_extractor-go::resourceName",
+          "file": "extracted_functions/cmd/interleaveguard/event_extractor-go/resourceName.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [
+            "cmd::interleaveguard::event_extractor-go::extractCriticalSectionsFromBody",
+            "cmd::interleaveguard::event_extractor-go::extractEventsFromBody"
+          ],
+          "phase2_callees": [],
+          "all_callees": []
+        },
+        {
+          "name": "cmd::interleaveguard::event_extractor-go::synchronizationMethod",
+          "file": "extracted_functions/cmd/interleaveguard/event_extractor-go/synchronizationMethod.go",
+          "unit": "interleaveguard",
+          "phase2_callers": [
+            "cmd::interleaveguard::event_extractor-go::extractCriticalSectionsFromBody",
+            "cmd::interleaveguard::event_extractor-go::extractEventsFromBody"
+          ],
+          "phase2_callees": [],
+          "all_callees": []
+        }
+      ]
+    }
+  ]
+}

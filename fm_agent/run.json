@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "run_id": "20261123T124445.183234Z_7e729dd1183f47c59f6856a14d3af98c",
-  "recorded_at": "2026-11-23T12:44:45.183665+00:00",
+  "run_id": "20261126T090920.726268Z_c717a057b58c48b0b075eaf95cd86520",
+  "recorded_at": "2026-11-26T09:09:20.726340+00:00",
   "project_dir": "/mnt/d/interleaveguard",
   "analysis_dir": "/mnt/d/interleaveguard",
-  "git_head": "cdd55ff80195ee085f90fc204acc16bc8368d726",
+  "git_head": "de839a857edda21b925e2fee50acfd6c0e2151cd",
   "git_dirty": true,
-  "git_status": "M .gitignore\n M benchmarks/data_race_unsafe/case_test.go\n M cmd/interleaveguard/main.go\n M testdata/sample.go\n?? vscode_env.ps1"
+  "git_status": "M .gitignore\n M cmd/interleaveguard/call_graph.go\n M cmd/interleaveguard/dependency_analyzer.go\n M cmd/interleaveguard/event_extractor.go\n M cmd/interleaveguard/main.go\n M testdata/indirect_calls.go\n M testdata/sample.go\n?? FMagent-paper4.pdf\n?? InterleaveGuard_FM-Agent_Project4_Briefing.pptx\n?? Project4.pdf\n?? fm_agent_concurrency.md\n?? plan.bin\n?? proj4report.docx\n?? structureofproj4.txt"
 }

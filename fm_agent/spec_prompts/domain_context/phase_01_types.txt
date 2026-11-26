@@ -1,0 +1,62 @@
+Phase 1: Core Command & Entry Point Types and Invariants
+
+## Structs and Types
+- **`Event`**:
+  - `ID` (`int`): Unique numeric identifier for the event. Valid range: `[1, ∞)`.
+  - `Function` (`string`): Name of the function containing the event.
+  - `Kind` (`string`): Type of event (`READ`, `WRITE`, `READ_WRITE`, `MUTEX_Lock`, `MUTEX_Unlock`, `CHANNEL_SEND`, etc.).
+  - `Resource` (`string`): Name or string representation of the variable, mutex, or channel being accessed.
+  - `ProtectedBy` (`string`): Comma-separated list of mutex locks active at the event position.
+  - `Line` (`int`): Source code line number (`[1, ∞)`).
+  - `pos` (`token.Pos`): Exact AST token position for ordering.
+
+- **`CriticalSection`**:
+  - `Lock` (`string`): Name of the synchronization lock (mutex/rwmutex).
+  - `StartLine` (`int`): Starting line number of the critical section.
+  - `EndLine` (`int`): Ending line number of the critical section.
+  - `Resources` (`list of string`): Shared resources accessed within the critical section.
+  - `startPos` (`token.Pos`), `endPos` (`token.Pos`): Internal token boundaries.
+
+- **`FunctionModel`**:
+  - `Name` (`string`): Function or method name.
+  - `Events` (`list of Event`): Ordered list of concurrency events in the function.
+  - `CriticalSections` (`list of CriticalSection`): Ordered list of lock-protected regions.
+
+- **`Dependency`**:
+  - `FromEventID` (`int`), `ToEventID` (`int`): Event IDs establishing the dependency.
+  - `Kind` (`string`): Dependency type (`PROGRAM_ORDER`, `SHARED_RESOURCE_CONFLICT`).
+  - `Resource` (`string`): Conflicting shared variable name.
+
+- **`GoroutineLaunch`**:
+  - `Caller` (`string`): Function initiating the goroutine.
+  - `Target` (`string`): Target function or synthetic goroutine literal name (`$goroutineN`).
+
+- **`CallEdge`**:
+  - `Caller` (`string`), `Callee` (`string`): Direct function call relationship.
+
+- **`GoroutineExecution`**:
+  - `Caller` (`string`), `Entry` (`string`), `ReachableFunctions` (`list of string`).
+
+- **`ProgramModel`**:
+  - `File` (`string`): Path to the analyzed source file.
+  - `Functions` (`list of FunctionModel`): All analyzed function models.
+  - `Dependencies` (`list of Dependency`): Inter-operation dependencies.
+  - `GoroutineLaunches` (`list of GoroutineLaunch`): Identified goroutine spawns.
+  - `CallGraph` (`list of CallEdge`): Complete call graph edges.
+  - `GoroutineExecutions` (`list of GoroutineExecution`): Reachability analysis results.
+
+## Encoding Rules
+- Program arguments are read from `os.Args[1]`.
+- Source code is parsed into a `token.FileSet` using `parser.ParseFile`.
+- Type information is populated via `types.Config.Check` using `importer.Default()`.
+
+## Invariants
+- CLI execution requires at least one argument (`os.Args` length ≥ 2); otherwise, usage instructions are printed and execution terminates.
+- Type checking must succeed without error before program model construction begins.
+
+## Entry Point Function Signatures
+- `main()`: Entry point of the command-line application.
+- `getCallName(expr ast.Expr) string`: Resolves AST expression to a qualified call name.
+- `getGoroutineTarget(call *ast.CallExpr, caller string, anonymousIndex int) (string, *ast.FuncLit)`: Identifies named or anonymous goroutine targets.
+- `getGlobalVariables(file *ast.File, info *types.Info) map[*types.Var]bool`: Collects package-level variable declarations.
+- `asGlobal(id *ast.Ident, globals map[*types.Var]bool, info *types.Info) *types.Var`: Resolves identifier to a package-level variable.

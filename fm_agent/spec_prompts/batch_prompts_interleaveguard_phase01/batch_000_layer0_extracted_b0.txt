@@ -1,0 +1,45 @@
+You are generating behavioral specifications for Phase 1, Layer 0.
+
+Language: go. Write specifications to adjacent .spec.json and .info.json files.
+
+Read fm_agent/spec_prompts/system_prompt.md FIRST for the mandatory spec format rules.
+Read: fm_agent/spec_prompts/domain_context/engine_overview.txt
+Read: fm_agent/spec_prompts/domain_context/phase_01_types.txt
+Read these user-provided domain knowledge Markdown files:
+- fm_agent/spec_prompts/domain_context/user_knowledge/fm_agent_concurrency.md
+
+## KEY RULES
+- Describe WHAT each extracted unit guarantees, NOT HOW it implements it
+- Do NOT name internal helper calls, loop structure, or data layout decisions
+- Do NOT enumerate members of sets - describe the GOVERNING RULE
+- Specs describe INTENDED CORRECT behavior per the domain (see domain files)
+- ALL files below exist in fm_agent/extracted_functions/ - read and process each one
+## UNITS (2 total - process ALL)
+### 1. fm_agent/extracted_functions/cmd/interleaveguard/main-go/asGlobal.go
+  Earlier-layer callers: (none)
+### 2. fm_agent/extracted_functions/cmd/interleaveguard/main-go/main.go
+  Earlier-layer callers: (none)
+
+## SPEC FORMAT (write JSON files; do NOT modify source files)
+
+For each function file `<function-file>`, write TWO JSON files in the SAME directory. `<function-file>` includes its original extension (for example, `foo.py` must produce `foo.py.spec.json` and `foo.py.info.json`):
+
+`<function-file>.spec.json`:
+```json
+{"signature": "<FunctionName>(<params>) -> <ReturnType>", "pre_condition": "...", "post_condition": "..."}
+```
+
+`<function-file>.info.json`:
+```json
+{"callees": [{"name": "<callee_name>", "signature": "...", "pre_condition": "...", "post_condition": "..."}]}
+```
+
+If the function has no callees: write `{"callees": []}` to the .info.json file.
+
+## PROCESS
+For each function:
+1. Read the extracted file
+2. Read caller expectations above - what do callers NEED from this function?
+3. Write a behavioral spec describing WHAT it guarantees (not HOW)
+4. Write the COMPLETE .spec.json and .info.json objects next to the UNCHANGED source file
+5. Use the Write tool to save both JSON files

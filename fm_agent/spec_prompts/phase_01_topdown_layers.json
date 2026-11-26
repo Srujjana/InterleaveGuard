@@ -1,0 +1,87 @@
+{
+  "phase": 1,
+  "phase_name": "Core Command & Entry Point",
+  "total_functions": 5,
+  "total_layers": 3,
+  "layers": [
+    {
+      "layer": 0,
+      "functions": [
+        {
+          "name": "cmd::interleaveguard::main-go::asGlobal",
+          "file": "extracted_functions/cmd/interleaveguard/main-go/asGlobal.go",
+          "unit": "interleaveguard",
+          "phase1_callers": [],
+          "phase1_callees": [],
+          "all_callees": []
+        },
+        {
+          "name": "cmd::interleaveguard::main-go::main",
+          "file": "extracted_functions/cmd/interleaveguard/main-go/main.go",
+          "unit": "interleaveguard",
+          "phase1_callers": [],
+          "phase1_callees": [
+            "cmd::interleaveguard::main-go::getGlobalVariables",
+            "cmd::interleaveguard::main-go::getGoroutineTarget"
+          ],
+          "all_callees": [
+            "cmd::interleaveguard::call_graph-go::extractCallGraph",
+            "cmd::interleaveguard::call_graph-go::reachableFunctions",
+            "cmd::interleaveguard::dependency_analyzer-go::analyzeDependencies",
+            "cmd::interleaveguard::event_extractor-go::annotateProtectedAccesses",
+            "cmd::interleaveguard::event_extractor-go::extractCriticalSections",
+            "cmd::interleaveguard::event_extractor-go::extractCriticalSectionsFromBody",
+            "cmd::interleaveguard::event_extractor-go::extractEvents",
+            "cmd::interleaveguard::event_extractor-go::extractEventsFromBody",
+            "cmd::interleaveguard::main-go::getGlobalVariables",
+            "cmd::interleaveguard::main-go::getGoroutineTarget"
+          ]
+        }
+      ]
+    },
+    {
+      "layer": 1,
+      "functions": [
+        {
+          "name": "cmd::interleaveguard::main-go::getGlobalVariables",
+          "file": "extracted_functions/cmd/interleaveguard/main-go/getGlobalVariables.go",
+          "unit": "interleaveguard",
+          "phase1_callers": [
+            "cmd::interleaveguard::main-go::main"
+          ],
+          "phase1_callees": [],
+          "all_callees": []
+        },
+        {
+          "name": "cmd::interleaveguard::main-go::getGoroutineTarget",
+          "file": "extracted_functions/cmd/interleaveguard/main-go/getGoroutineTarget.go",
+          "unit": "interleaveguard",
+          "phase1_callers": [
+            "cmd::interleaveguard::main-go::main"
+          ],
+          "phase1_callees": [
+            "cmd::interleaveguard::main-go::getCallName"
+          ],
+          "all_callees": [
+            "cmd::interleaveguard::main-go::getCallName"
+          ]
+        }
+      ]
+    },
+    {
+      "layer": 2,
+      "functions": [
+        {
+          "name": "cmd::interleaveguard::main-go::getCallName",
+          "file": "extracted_functions/cmd/interleaveguard/main-go/getCallName.go",
+          "unit": "interleaveguard",
+          "phase1_callers": [
+            "cmd::interleaveguard::main-go::getGoroutineTarget"
+          ],
+          "phase1_callees": [],
+          "all_callees": []
+        }
+      ]
+    }
+  ]
+}

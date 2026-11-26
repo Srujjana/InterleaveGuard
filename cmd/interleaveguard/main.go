@@ -337,7 +337,42 @@ func main() {
 
 	// Analyze dependencies between extracted operations.
 	analyzeDependencies(&program)
+	// Classify potential data races.
+	fmt.Println("\nPotential data races:")
 
+	for _, dependency := range program.Dependencies {
+		if dependency.Kind != "SHARED_RESOURCE_CONFLICT" {
+			continue
+		}
+
+		var first, second *Event
+
+		for i := range program.Functions {
+			for j := range program.Functions[i].Events {
+				event := &program.Functions[i].Events[j]
+
+				if event.ID == dependency.FromEventID {
+					first = event
+				}
+				if event.ID == dependency.ToEventID {
+					second = event
+				}
+			}
+		}
+
+		if first == nil || second == nil {
+			continue
+		}
+
+		if first.ProtectedBy == "" || second.ProtectedBy == "" {
+			fmt.Printf(
+				"DATA_RACE_CANDIDATE | Resource: %s | %s <-> %s\n",
+				dependency.Resource,
+				first.Function,
+				second.Function,
+			)
+		}
+	}
 	fmt.Println("\nStructured concurrency events:")
 
 	fmt.Println("\nCritical sections:")

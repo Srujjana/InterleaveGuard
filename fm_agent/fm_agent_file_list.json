@@ -1,0 +1,22 @@
+[
+  "cmd/interleaveguard/call_graph-go/addConcurrentPair.go",
+  "cmd/interleaveguard/call_graph-go/buildConcurrentFunctionPairs.go",
+  "cmd/interleaveguard/call_graph-go/extractCallGraph.go",
+  "cmd/interleaveguard/call_graph-go/reachableFunctions.go",
+  "cmd/interleaveguard/dependency_analyzer-go/analyzeDependencies.go",
+  "cmd/interleaveguard/dependency_analyzer-go/isWriteOperation.go",
+  "cmd/interleaveguard/event_extractor-go/annotateProtectedAccesses.go",
+  "cmd/interleaveguard/event_extractor-go/extractCriticalSections.go",
+  "cmd/interleaveguard/event_extractor-go/extractCriticalSectionsFromBody.go",
+  "cmd/interleaveguard/event_extractor-go/extractEvents.go",
+  "cmd/interleaveguard/event_extractor-go/extractEventsFromBody.go",
+  "cmd/interleaveguard/event_extractor-go/inspectFunctionBody.go",
+  "cmd/interleaveguard/event_extractor-go/isChannel.go",
+  "cmd/interleaveguard/event_extractor-go/resourceName.go",
+  "cmd/interleaveguard/event_extractor-go/synchronizationMethod.go",
+  "cmd/interleaveguard/main-go/asGlobal.go",
+  "cmd/interleaveguard/main-go/getCallName.go",
+  "cmd/interleaveguard/main-go/getGlobalVariables.go",
+  "cmd/interleaveguard/main-go/getGoroutineTarget.go",
+  "cmd/interleaveguard/main-go/main.go"
+]

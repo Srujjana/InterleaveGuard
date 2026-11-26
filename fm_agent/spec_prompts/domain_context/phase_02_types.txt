@@ -1,0 +1,54 @@
+Phase 2: Static Analysis & Extraction Types and Invariants
+
+## Structs and Types
+- Operates on the data types defined in Phase 1 (`Event`, `CriticalSection`, `FunctionModel`, `Dependency`, `GoroutineLaunch`, `CallEdge`, `ProgramModel`).
+
+## Encoding Rules & Extraction Formulas
+- **Call Graph Extraction (`extractCallGraph`)**:
+  - Maps `*ast.FuncDecl` nodes to `*types.Func` objects.
+  - Inspects function bodies for `*ast.CallExpr` nodes; resolves callee declarations via `info.Uses` and `info.Selections`.
+  - Encodes directed edges as `CallEdge{Caller: caller, Callee: callee}`.
+
+- **Reachability Analysis (`reachableFunctions`)**:
+  - Builds an adjacency list map (`map[string][]string`) from `CallEdge` entries.
+  - Computes transitive closure via Depth-First Search (DFS) starting from a goroutine target.
+
+- **Event Extraction (`extractEventsFromBody`)**:
+  - Scans AST nodes within function bodies (excluding nested function literals).
+  - Identifies writes to package-level variables:
+    - Assignment (`*ast.AssignStmt`): `kind = "WRITE"` if operator is `=`, else `"READ_WRITE"` for compound assignments (`+=`, `-=`, etc.).
+    - Increment/Decrement (`*ast.IncDecStmt`): `kind = "READ_WRITE"`.
+  - Identifies synchronization calls (`sync.Mutex`, `sync.RWMutex`, `sync.WaitGroup`) via receiver type inspection (`synchronizationMethod`).
+  - Identifies channel operations (`*ast.SendStmt`, unary receive operator `token.ARROW`, built-in `close`, `*ast.SelectStmt`).
+  - Sorts events strictly by source-code position: `collected[i].pos < collected[j].pos`.
+  - Assigns incremental integer IDs starting from `startID`.
+
+- **Critical Section Extraction (`extractCriticalSectionsFromBody`)**:
+  - Collects lock operations (`Lock`, `RLock`, `Unlock`, `RUnlock`) and identifies deferred calls (`*ast.DeferStmt`).
+  - Pairs lock acquisition with corresponding release operations in source order.
+  - Handles deferred unlocks in Last-In-First-Out (LIFO) order at block exit (`body.Rbrace`).
+  - Sorts critical sections by starting line number (`StartLine`).
+
+- **Dependency Analysis (`analyzeDependencies`)**:
+  - Establishes program-order dependencies (`PROGRAM_ORDER`) between all sequential event pairs within each function.
+  - Computes concurrent function pairs (`buildConcurrentFunctionPairs`) based on goroutine launch targets and call-graph reachability.
+  - Identifies shared resource conflicts (`SHARED_RESOURCE_CONFLICT`) between events in concurrent functions when:
+    1. `eventA.Resource != ""` and `eventA.Resource == eventB.Resource`.
+    2. At least one operation is a write (`isWriteOperation(kind)`).
+    3. Accesses are not protected by the same active mutex (`eventA.ProtectedBy == "" || eventA.ProtectedBy != eventB.ProtectedBy`).
+
+## Invariants
+- Nested anonymous functions (`*ast.FuncLit`) are excluded from parent function body inspections during event and critical section extraction, and are processed independently as separate synthetic function models.
+- Shared-state access events (`READ`, `WRITE`, `READ_WRITE`) must correctly inherit all active mutex locks enclosing their source positions (`annotateProtectedAccesses`).
+- Data race candidates (`DATA_RACE_CANDIDATE`) are reported when a `SHARED_RESOURCE_CONFLICT` dependency occurs between events where either event lacks lock protection (`ProtectedBy == ""`).
+
+## Entry Point Function Signatures
+- `extractCallGraph(file *ast.File, info *types.Info) []CallEdge`
+- `reachableFunctions(start string, callGraph []CallEdge) []string`
+- `buildConcurrentFunctionPairs(program *ProgramModel) map[string]map[string]bool`
+- `extractEvents(fn *ast.FuncDecl, globals map[*types.Var]bool, info *types.Info, fset *token.FileSet, startID int) []Event`
+- `extractEventsFromBody(functionName string, body *ast.BlockStmt, globals map[*types.Var]bool, info *types.Info, fset *token.FileSet, startID int) []Event`
+- `extractCriticalSections(fn *ast.FuncDecl, info *types.Info, fset *token.FileSet) []CriticalSection`
+- `extractCriticalSectionsFromBody(body *ast.BlockStmt, info *types.Info, fset *token.FileSet) []CriticalSection`
+- `annotateProtectedAccesses(function *FunctionModel)`
+- `analyzeDependencies(program *ProgramModel)`

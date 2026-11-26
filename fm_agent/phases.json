@@ -1,0 +1,45 @@
+{
+  "project": "interleaveguard",
+  "languages": [
+    "go"
+  ],
+  "file_extensions": [
+    "go"
+  ],
+  "phases": [
+    {
+      "phase": 1,
+      "name": "Core Command & Entry Point",
+      "description": "Initializes application execution, handles command-line flags, and orchestrates the core static analysis and verification pipeline.",
+      "modules": [
+        {
+          "name": "interleaveguard",
+          "description": "Main entry point of the application, responsible for parsing arguments, managing the analysis lifecycle, and invoking internal analysis modules.",
+          "source_files": [
+            "cmd/interleaveguard/main.go"
+          ]
+        }
+      ],
+      "depends_on_phases": []
+    },
+    {
+      "phase": 2,
+      "name": "Static Analysis & Extraction",
+      "description": "Extracts call graphs, events, and analyzes program dependencies from source code to model concurrent execution behaviors.",
+      "modules": [
+        {
+          "name": "interleaveguard",
+          "description": "Extracts call graphs, event traces, and dependency structures from Go source files to detect concurrency issues.",
+          "source_files": [
+            "cmd/interleaveguard/call_graph.go",
+            "cmd/interleaveguard/dependency_analyzer.go",
+            "cmd/interleaveguard/event_extractor.go"
+          ]
+        }
+      ],
+      "depends_on_phases": [
+        1
+      ]
+    }
+  ]
+}
