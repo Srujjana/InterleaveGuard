@@ -1,4 +1,4 @@
-You are generating behavioral specifications for Phase 1, Layer 0.
+Generating behavioral specifications for Phase 1, Layer 0.
 
 Language: go. Write specifications to adjacent .spec.json and .info.json files.
 
