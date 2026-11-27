@@ -28,9 +28,12 @@ func analyzeDependencies(program *ProgramModel) {
 	// Identify function pairs that may execute concurrently,
 	// including functions indirectly reachable from goroutine targets.
 	concurrentPairs := buildConcurrentFunctionPairs(program)
-	// Compare events only between potentially concurrent functions.
+
+	// Compare events between potentially concurrent functions.
+	// Also compare a function against itself when multiple goroutines
+	// may execute that function concurrently.
 	for i := 0; i < len(program.Functions); i++ {
-		for j := i + 1; j < len(program.Functions); j++ {
+		for j := i; j < len(program.Functions); j++ {
 
 			functionA := program.Functions[i]
 			functionB := program.Functions[j]
@@ -39,19 +42,27 @@ func analyzeDependencies(program *ProgramModel) {
 				continue
 			}
 
-			for _, eventA := range functionA.Events {
-				for _, eventB := range functionB.Events {
+			for eventIndexA, eventA := range functionA.Events {
+				for eventIndexB, eventB := range functionB.Events {
+
+					// Avoid comparing an event with earlier events
+					// when both belong to the same function.
+					if i == j && eventIndexB < eventIndexA {
+						continue
+					}
 
 					if eventA.Resource == "" ||
 						eventA.Resource != eventB.Resource {
 						continue
 					}
-					// Both accesses use the same lock, so they cannot
-					// execute inside their critical sections simultaneously.
+
+					// Same lock protection prevents simultaneous
+					// conflicting access to this resource.
 					if eventA.ProtectedBy != "" &&
 						eventA.ProtectedBy == eventB.ProtectedBy {
 						continue
 					}
+
 					if !isWriteOperation(eventA.Kind) &&
 						!isWriteOperation(eventB.Kind) {
 						continue

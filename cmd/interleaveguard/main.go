@@ -149,10 +149,71 @@ func main() {
 	filePath := os.Args[1]
 	fset := token.NewFileSet()
 
-	file, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
+	var files []*ast.File
+	var file *ast.File
+
+	inputInfo, err := os.Stat(filePath)
 	if err != nil {
-		fmt.Println("Error parsing file:", err)
+		fmt.Println("Error accessing input:", err)
 		return
+	}
+
+	if inputInfo.IsDir() {
+		packages, err := parser.ParseDir(
+			fset,
+			filePath,
+			nil,
+			parser.ParseComments,
+		)
+		if err != nil {
+			fmt.Println("Error parsing directory:", err)
+			return
+		}
+
+		if len(packages) != 1 {
+			fmt.Println("Please provide a directory containing one Go package.")
+			return
+		}
+
+		var packageNames []string
+		for name := range packages {
+			packageNames = append(packageNames, name)
+		}
+		sort.Strings(packageNames)
+
+		packageAST := packages[packageNames[0]]
+
+		var fileNames []string
+		for name := range packageAST.Files {
+			fileNames = append(fileNames, name)
+		}
+		sort.Strings(fileNames)
+
+		for _, name := range fileNames {
+			files = append(files, packageAST.Files[name])
+		}
+
+		file = &ast.File{
+			Name: files[0].Name,
+		}
+
+		for _, parsedFile := range files {
+			file.Decls = append(file.Decls, parsedFile.Decls...)
+		}
+	} else {
+		parsedFile, err := parser.ParseFile(
+			fset,
+			filePath,
+			nil,
+			parser.ParseComments,
+		)
+		if err != nil {
+			fmt.Println("Error parsing file:", err)
+			return
+		}
+
+		file = parsedFile
+		files = append(files, parsedFile)
 	}
 
 	// Resolve identifiers to their actual declarations.
@@ -165,10 +226,9 @@ func main() {
 
 	config := types.Config{
 		Importer: importer.Default(),
-		//importer.ForCompiler(fset, "source", nil)
 	}
 
-	_, err = config.Check(file.Name.Name, fset, []*ast.File{file}, info)
+	_, err = config.Check(file.Name.Name, fset, files, info)
 	if err != nil {
 		fmt.Println("Type-checking error:", err)
 		return
@@ -250,7 +310,7 @@ func main() {
 		GoroutineLaunches: goroutineLaunches,
 	}
 	// Extract direct function-call relationships.
-	program.CallGraph = extractCallGraph(file, info)
+	program.CallGraph = extractCallGraph(file, info, anonymousGoroutines)
 
 	// Display functions reachable from each goroutine launch.
 	fmt.Println("\nReachable functions per goroutine:")

@@ -1,0 +1,21 @@
+ID,Package,Category,Expected,Vulnerability
+C01,data_race_unsafe,Data race,Vulnerable,Unsynchronized counter access
+C02,data_race_safe,Data race,Safe,Mutex-protected counter
+C03,data_race_slice_unsafe,Data race,Vulnerable,Concurrent slice append
+C04,data_race_slice_safe,Data race,Safe,Mutex-protected slice
+C05,atomicity_unsafe,Atomicity,Vulnerable,Check-then-act job claim
+C06,atomicity_safe,Atomicity,Safe,Protected job claim
+C07,atomicity_lost_update_unsafe,Atomicity,Vulnerable,Lost update
+C08,atomicity_lost_update_safe,Atomicity,Safe,Atomic read-modify-write
+C09,deadlock_unsafe,Deadlock,Vulnerable,Opposite mutex lock order
+C10,deadlock_safe,Deadlock,Safe,Consistent mutex lock order
+C11,deadlock_self_unsafe,Deadlock,Vulnerable,Repeated lock on same mutex
+C12,deadlock_self_safe,Deadlock,Safe,Single lock and unlock
+C13,deadlock_channel_unsafe,Deadlock,Vulnerable,Cyclic unbuffered channel sends
+C14,deadlock_channel_safe,Deadlock,Safe,Matched channel send and receive
+C15,waitgroup_unsafe,Synchronization,Vulnerable,WaitGroup Add after Wait
+C16,waitgroup_safe,Synchronization,Safe,WaitGroup Add before goroutine
+C17,atomicity_transfer_unsafe,Atomicity,Vulnerable,Partial transfer breaks balance invariant
+C18,data_race_map_unsafe,Data race,Vulnerable,Concurrent access to shared map values
+C19,deadlock_rwmutex_unsafe,Deadlock,Vulnerable,RWMutex read-to-write upgrade deadlock
+C20,deadlock_no_receiver_unsafe,Deadlock,Vulnerable,Unbuffered channel send without receiver

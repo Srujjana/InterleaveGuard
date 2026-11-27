@@ -6,17 +6,19 @@ import (
 )
 
 // Extract direct calls between functions declared in the analyzed file.
+
 func extractCallGraph(
 	file *ast.File,
 	info *types.Info,
+	anonymousGoroutines map[string]*ast.FuncLit,
 ) []CallEdge {
 
-	// Map actual function declarations to their names.
+	// Map declared functions and methods to their names.
 	declaredFunctions := make(map[*types.Func]string)
 
 	for _, declaration := range file.Decls {
 		fn, ok := declaration.(*ast.FuncDecl)
-		if !ok || fn.Body == nil || fn.Recv != nil {
+		if !ok || fn.Body == nil {
 			continue
 		}
 
@@ -30,22 +32,19 @@ func extractCallGraph(
 
 	var callGraph []CallEdge
 
-	// Inspect calls inside each declared function.
-	for _, declaration := range file.Decls {
-		fn, ok := declaration.(*ast.FuncDecl)
-		if !ok || fn.Body == nil || fn.Recv != nil {
-			continue
-		}
+	// Find calls made inside a function body.
+	inspectCalls := func(caller string, body *ast.BlockStmt) {
+		ast.Inspect(body, func(n ast.Node) bool {
+			// Anonymous goroutines are analyzed separately.
+			if _, ok := n.(*ast.FuncLit); ok {
+				return false
+			}
 
-		caller := fn.Name.Name
-
-		ast.Inspect(fn.Body, func(n ast.Node) bool {
 			call, ok := n.(*ast.CallExpr)
 			if !ok {
 				return true
 			}
 
-			// Resolve the called function using Go type information.
 			var calledFunction *types.Func
 
 			switch expression := call.Fun.(type) {
@@ -55,10 +54,11 @@ func extractCallGraph(
 			case *ast.SelectorExpr:
 				if selection := info.Selections[expression]; selection != nil {
 					calledFunction, _ = selection.Obj().(*types.Func)
+				} else {
+					calledFunction, _ = info.Uses[expression.Sel].(*types.Func)
 				}
 			}
 
-			// Keep only functions declared in this analyzed file.
 			callee, exists := declaredFunctions[calledFunction]
 			if !exists {
 				return true
@@ -71,6 +71,21 @@ func extractCallGraph(
 
 			return true
 		})
+	}
+
+	// Analyze normal functions and methods.
+	for _, declaration := range file.Decls {
+		fn, ok := declaration.(*ast.FuncDecl)
+		if !ok || fn.Body == nil {
+			continue
+		}
+
+		inspectCalls(fn.Name.Name, fn.Body)
+	}
+
+	// Analyze anonymous goroutine bodies separately.
+	for name, literal := range anonymousGoroutines {
+		inspectCalls(name, literal.Body)
 	}
 
 	return callGraph
@@ -155,7 +170,11 @@ func buildConcurrentFunctionPairs(
 		// The launching function may continue executing
 		// while the new goroutine runs.
 		for _, function := range reachable {
+			// The launching function may continue while the goroutine runs.
 			addConcurrentPair(pairs, launch.Caller, function)
+
+			// Multiple goroutines may execute the same function concurrently.
+			addConcurrentPair(pairs, function, function)
 		}
 	}
 

@@ -34,6 +34,34 @@ func resourceName(expr ast.Expr) string {
 	return "<expression>"
 }
 
+// Identify a struct field using Go's type information.
+func structFieldResource(
+	selector *ast.SelectorExpr,
+	info *types.Info,
+) (string, bool) {
+	selection := info.Selections[selector]
+	if selection == nil || selection.Kind() != types.FieldVal {
+		return "", false
+	}
+
+	field, ok := selection.Obj().(*types.Var)
+	if !ok {
+		return "", false
+	}
+
+	receiverType := types.Unalias(info.TypeOf(selector.X))
+	if pointer, ok := receiverType.(*types.Pointer); ok {
+		receiverType = types.Unalias(pointer.Elem())
+	}
+
+	named, ok := receiverType.(*types.Named)
+	if !ok {
+		return field.Name(), true
+	}
+
+	return named.Obj().Name() + "." + field.Name(), true
+}
+
 // Identify synchronization methods using their actual Go receiver types.
 func synchronizationMethod(
 	selector *ast.SelectorExpr,
@@ -138,38 +166,48 @@ func extractEventsFromBody(
 
 	writes := make(map[token.Pos]string)
 	synchronizationPositions := make(map[token.Pos]bool)
+	synchronizationFields := make(map[token.Pos]bool)
 
 	// Identify writes to package-level variables.
+
+	// Identify writes to package-level variables and struct fields.
 	inspectFunctionBody(body, func(n ast.Node) bool {
 		switch node := n.(type) {
 		case *ast.AssignStmt:
 			for _, lhs := range node.Lhs {
-				id, ok := lhs.(*ast.Ident)
-				if !ok {
-					continue
-				}
-
-				variable, ok := info.Uses[id].(*types.Var)
-				if !ok || !globals[variable] {
-					continue
-				}
-
 				kind := "WRITE"
 				if node.Tok != token.ASSIGN {
 					kind = "READ_WRITE"
 				}
-				writes[id.Pos()] = kind
+
+				switch target := lhs.(type) {
+				case *ast.Ident:
+					variable, ok := info.Uses[target].(*types.Var)
+					if ok && globals[variable] {
+						writes[target.Pos()] = kind
+					}
+
+				case *ast.SelectorExpr:
+					if _, ok := structFieldResource(target, info); ok {
+						writes[target.Sel.Pos()] = kind
+					}
+				}
 			}
 
 		case *ast.IncDecStmt:
-			id, ok := node.X.(*ast.Ident)
-			if !ok {
-				return true
-			}
+			kind := "READ_WRITE"
 
-			variable, ok := info.Uses[id].(*types.Var)
-			if ok && globals[variable] {
-				writes[id.Pos()] = "READ_WRITE"
+			switch target := node.X.(type) {
+			case *ast.Ident:
+				variable, ok := info.Uses[target].(*types.Var)
+				if ok && globals[variable] {
+					writes[target.Pos()] = kind
+				}
+
+			case *ast.SelectorExpr:
+				if _, ok := structFieldResource(target, info); ok {
+					writes[target.Sel.Pos()] = kind
+				}
 			}
 		}
 
@@ -209,6 +247,11 @@ func extractEventsFromBody(
 				if kind := synchronizationMethod(selector, info); kind != "" {
 					eventPos := node.Pos()
 
+					// Do not treat the mutex field as ordinary shared data.
+					if field, ok := selector.X.(*ast.SelectorExpr); ok {
+						synchronizationFields[field.Pos()] = true
+					}
+
 					if deferredCalls[node.Pos()] {
 						eventPos = body.Rbrace
 					}
@@ -243,32 +286,61 @@ func extractEventsFromBody(
 	})
 
 	// Collect accesses to package-level variables.
+
+	// Collect accesses to package-level variables and struct fields.
 	inspectFunctionBody(body, func(n ast.Node) bool {
-		id, ok := n.(*ast.Ident)
-		if !ok || synchronizationPositions[id.Pos()] {
-			return true
-		}
+		switch node := n.(type) {
+		case *ast.SelectorExpr:
+			if synchronizationFields[node.Pos()] {
+				return true
+			}
+			resource, ok := structFieldResource(node, info)
+			if !ok {
+				return true
+			}
 
-		variable, ok := info.Uses[id].(*types.Var)
-		if !ok || !globals[variable] {
-			return true
-		}
+			kind := "READ"
+			if writeKind, exists := writes[node.Sel.Pos()]; exists {
+				kind = writeKind
+			}
 
-		kind := "READ"
-		if writeKind, exists := writes[id.Pos()]; exists {
-			kind = writeKind
-		}
+			collected = append(collected, positionedEvent{
+				event: Event{
+					Function: functionName,
+					Kind:     kind,
+					Resource: resource,
+					Line:     fset.Position(node.Pos()).Line,
+					pos:      node.Pos(),
+				},
+				pos: node.Pos(),
+			})
 
-		collected = append(collected, positionedEvent{
-			event: Event{
-				Function: functionName,
-				Kind:     kind,
-				Resource: variable.Name(),
-				Line:     fset.Position(id.Pos()).Line,
-				pos:      id.Pos(),
-			},
-			pos: id.Pos(),
-		})
+		case *ast.Ident:
+			if synchronizationPositions[node.Pos()] {
+				return true
+			}
+
+			variable, ok := info.Uses[node].(*types.Var)
+			if !ok || !globals[variable] {
+				return true
+			}
+
+			kind := "READ"
+			if writeKind, exists := writes[node.Pos()]; exists {
+				kind = writeKind
+			}
+
+			collected = append(collected, positionedEvent{
+				event: Event{
+					Function: functionName,
+					Kind:     kind,
+					Resource: variable.Name(),
+					Line:     fset.Position(node.Pos()).Line,
+					pos:      node.Pos(),
+				},
+				pos: node.Pos(),
+			})
+		}
 
 		return true
 	})
